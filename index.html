@@ -17,7 +17,7 @@
             --card-bg: #2c2c2c;
             --btn-blue: #2196f3;
             --btn-warn: #ff9800;
-            --btn-brown: #a1887f; /* Cor ajustada para destacar no topo */
+            --btn-brown: #a1887f;
         }
 
         * { box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
@@ -104,11 +104,26 @@
         #alerts-container { min-height: 5px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px;}
 
         .alert-box {
-            padding: 8px;
+            padding: 10px 8px;
             border-radius: 6px;
             text-align: center;
             font-weight: bold;
             font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* ESTILO DO DESTAQUE DOS NÚMEROS FALTANTES */
+        .alert-num {
+            background: #000000;
+            color: #ffffff;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 900;
+            border: 1px solid rgba(255,255,255,0.4);
+            display: inline-block;
+            margin: 0 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
         .alert-bingo { background-color: var(--alert-bingo); color: black; animation: pulse 0.5s infinite; }
@@ -159,12 +174,28 @@
             align-items: center;
         }
 
-        .add-card-box {
+        /* ESTILOS DO CARD RETRÁTIL (SANFONA) */
+        .collapsible-card {
             background: var(--panel-bg);
-            padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
             border: 1px solid #333;
+            overflow: hidden;
+        }
+        .collapsible-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            background: #252525;
+            user-select: none;
+        }
+        .collapsible-content {
+            padding: 15px;
+            border-top: 1px solid #333;
         }
 
         .input-group { margin-bottom: 10px; display: flex; gap: 10px; }
@@ -182,7 +213,6 @@
         }
 
         .backup-controls { display: flex; gap: 10px; margin-bottom: 20px; }
-
         .global-actions { display: flex; justify-content: space-between; margin-bottom: 15px; }
 
         #cards-container, #history-cards-render {
@@ -270,16 +300,8 @@
         .modal-actions { display: flex; gap: 10px; }
         .modal-actions button { flex: 1; }
 
-        /* Scroll Modal de Histórico */
-        #history-modal {
-            align-items: flex-start;
-            padding: 20px 0;
-            overflow-y: auto;
-        }
-        #history-modal .modal-content {
-            margin: auto;
-            max-width: 600px;
-        }
+        #history-modal { align-items: flex-start; padding: 20px 0; overflow-y: auto; }
+        #history-modal .modal-content { margin: auto; max-width: 600px; }
 
     </style>
 </head>
@@ -306,8 +328,7 @@
             </div>
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;" id="history-modal-numbers"></div>
             
-            <div id="history-cards-render">
-                </div>
+            <div id="history-cards-render"></div>
         </div>
     </div>
 
@@ -333,21 +354,30 @@
 
     <div id="bottom-panel">
         
-        <div class="backup-controls">
-            <button class="btn-secondary" onclick="exportBackup()">💾 Exportar</button>
-            <label class="btn-label btn-secondary">
-                📂 Importar
-                <input type="file" id="import-file" style="display: none;" accept=".json">
-            </label>
-        </div>
-
-        <div class="add-card-box" id="add-card-section">
-            <h3 class="section-title" style="border-bottom:none; margin-bottom: 5px;">Configurar Cartela</h3>
-            <div class="input-group">
-                <input type="text" id="new-card-code" placeholder="Código (Ex: 001)">
+        <div class="collapsible-card">
+            <div class="collapsible-header" onclick="toggleConfig()">
+                <span>⚙️ Ferramentas & Cadastro</span>
+                <span id="config-arrow">▼</span>
             </div>
-            <textarea id="new-card-input" placeholder="Cole os 25 números aqui (separados por espaço)..."></textarea>
-            <button class="btn-blue" style="width: 100%;" onclick="addCard()">Salvar Cartela</button>
+            
+            <div class="collapsible-content" id="config-content" style="display: none;">
+                <div class="backup-controls">
+                    <button class="btn-secondary" onclick="exportBackup()">💾 Exportar</button>
+                    <label class="btn-label btn-secondary">
+                        📂 Importar
+                        <input type="file" id="import-file" style="display: none;" accept=".json">
+                    </label>
+                </div>
+
+                <div id="add-card-section">
+                    <h3 class="section-title" style="border-bottom:none; margin-bottom: 10px; padding-bottom: 0;">Configurar Cartela</h3>
+                    <div class="input-group">
+                        <input type="text" id="new-card-code" placeholder="Código (Ex: 001)">
+                    </div>
+                    <textarea id="new-card-input" placeholder="Cole os 25 números aqui (separados por espaço)..."></textarea>
+                    <button class="btn-blue" style="width: 100%;" onclick="addCard()">Salvar Cartela</button>
+                </div>
+            </div>
         </div>
 
         <div class="global-actions">
@@ -375,9 +405,23 @@
     let currentPrize = "";
     let drawnNumbers = new Set();
     let cards = [];
-    let pastRounds = []; // Banco de dados do histórico
+    let pastRounds = []; 
     let cardIdCounter = 1;
     let pendingDrawNumber = null;
+
+    // Função para abrir/fechar o sanfona
+    function toggleConfig(forceOpen = false) {
+        const content = document.getElementById('config-content');
+        const arrow = document.getElementById('config-arrow');
+        
+        if (forceOpen || content.style.display === 'none') {
+            content.style.display = 'block';
+            arrow.innerText = '▲';
+        } else {
+            content.style.display = 'none';
+            arrow.innerText = '▼';
+        }
+    }
 
     function saveData() {
         localStorage.setItem('bingoAppData', JSON.stringify({
@@ -435,9 +479,9 @@
                     loadData();
                     alert("Backup importado com sucesso!");
                 } else {
-                    alert("Arquivo de backup inválido ou incompatível.");
+                    alert("Arquivo de backup inválido.");
                 }
-            } catch (err) { alert("Erro ao ler o ficheiro de backup."); }
+            } catch (err) { alert("Erro ao ler o ficheiro."); }
             event.target.value = ''; 
         };
         reader.readAsText(file);
@@ -457,7 +501,6 @@
 
     function confirmPrize() {
         const inputVal = document.getElementById('modal-prize-input').value.trim();
-        
         if (!inputVal) return alert("Por favor, digite o nome do prêmio.");
         
         currentPrize = inputVal;
@@ -485,28 +528,19 @@
         saveData();
     }
 
-    // NOVA FUNÇÃO: BATIDO POR OUTRO
     function someoneElseWon() {
-        if (drawnNumbers.size === 0) {
-            return alert("Nenhum número foi sorteado ainda nesta rodada.");
-        }
-        
-        if(confirm("Confirmar que alguém bateu? A rodada será encerrada e as cartelas serão salvas lá em baixo na área de 'Conferência'.")) {
-            // Salva um retrato (snapshot) das cartelas exatas daquele momento
+        if (drawnNumbers.size === 0) return alert("Nenhum número foi sorteado ainda nesta rodada.");
+        if(confirm("Confirmar que alguém bateu? A rodada será movida para a área de 'Conferência Futura'.")) {
             pastRounds.push({
                 id: Date.now(),
                 prize: currentPrize || "Prêmio Sem Nome",
                 numbers: Array.from(drawnNumbers),
                 cardsSnapshot: JSON.parse(JSON.stringify(cards))
             });
-            
-            // Zera o painel
             drawnNumbers.clear();
             currentPrize = "";
-            
             document.getElementById('current-prize-display').innerText = "Prêmio: Aguardando...";
             document.getElementById('current-prize-display').style.color = "var(--text-muted)";
-            
             updateDrawnList();
             updateAllCards();
             renderHistory();
@@ -514,12 +548,10 @@
         }
     }
 
-    // RENDERIZA A LISTA DO HISTÓRICO LÁ EM BAIXO
     function renderHistory() {
         const container = document.getElementById('history-container');
         document.getElementById('history-count').innerText = pastRounds.length;
         container.innerHTML = '';
-        
         [...pastRounds].reverse().forEach(round => {
             const div = document.createElement('div');
             div.className = 'card';
@@ -529,7 +561,6 @@
             div.style.justifyContent = 'space-between';
             div.style.alignItems = 'center';
             div.style.padding = '12px';
-            
             div.innerHTML = `
                 <div>
                     <div style="font-weight: bold; color: var(--accent);">${round.prize}</div>
@@ -549,24 +580,18 @@
         }
     }
 
-    // ABRE A TELA COM AS CARTELAS DO PASSADO
     function viewHistory(id) {
         const round = pastRounds.find(r => r.id === id);
         if (!round) return;
-        
         document.getElementById('history-modal-title').innerText = `Conferência: ${round.prize}`;
         document.getElementById('history-modal-numbers').innerHTML = `Sorteados: <span style="color:#fff">${round.numbers.join(', ')}</span>`;
-        
         const container = document.getElementById('history-cards-render');
         container.innerHTML = '';
-        
         const roundDrawnSet = new Set(round.numbers);
         
-        // Renderiza as cartelas exatamente como estavam
         round.cardsSnapshot.forEach(card => {
             const analysis = card.mode === 'quina' ? analyzeQuina(card.numbers, roundDrawnSet) : analyzeCheia(card.numbers, roundDrawnSet);
             const mCount = analysis.count;
-            
             let statusClass = '';
             if (mCount === 0) statusClass = 'bingo';
             else if (mCount === 1) statusClass = 'armada';
@@ -574,7 +599,6 @@
 
             const cardDiv = document.createElement('div');
             cardDiv.className = `card ${statusClass}`;
-            
             let html = `
                 <div class="card-header">
                     <span class="card-title">Cód: ${card.code}</span>
@@ -582,22 +606,17 @@
                 </div>
                 <div class="grid-25">
             `;
-
             card.numbers.forEach(n => {
                 const isMarked = roundDrawnSet.has(n);
                 html += `<div class="grid-cell ${isMarked ? 'marked' : ''}">${n}</div>`;
             });
-            html += `</div>`;
-            
-            html += `<div class="missing-info">`;
+            html += `</div><div class="missing-info">`;
             if (mCount === 0) html += `<span style="color: var(--accent); font-weight: bold;">BINGO!</span>`;
             else html += `Faltam: <strong>${mCount}</strong>`;
             html += `</div>`;
-
             cardDiv.innerHTML = html;
             container.appendChild(cardDiv);
         });
-        
         document.getElementById('history-modal').style.display = 'flex';
     }
 
@@ -645,7 +664,6 @@
 
         if (isBingoAlreadyWon() && !drawnNumbers.has(num)) {
             if(confirm("Você já bateu um BINGO neste prêmio! Deseja salvar no histórico e iniciar limpo o próximo sorteio com este número?")) {
-                // Auto salva no historico por ter ganho
                 pastRounds.push({
                     id: Date.now(),
                     prize: currentPrize || "Prêmio (BINGO)",
@@ -690,16 +708,13 @@
         const codeInput = document.getElementById('new-card-code').value.trim() || `C-${cardIdCounter}`;
         const numInput = document.getElementById('new-card-input').value;
         const matches = numInput.match(/\d+/g);
-        
         if (!matches || matches.length !== 25) {
             return alert(`A cartela precisa ter exatamente 25 números. Encontrados: ${matches ? matches.length : 0}.`);
         }
-
         cards.push({
             id: cardIdCounter++, code: codeInput, 
             numbers: matches.map(n => parseInt(n)), mode: 'cheia'
         });
-
         document.getElementById('new-card-input').value = '';
         document.getElementById('new-card-code').value = '';
         updateAllCards();
@@ -709,13 +724,16 @@
     function duplicateCard(id) {
         const card = cards.find(c => c.id === id);
         if(card) {
+            toggleConfig(true); // Força a aba de config a abrir
             document.getElementById('new-card-code').value = card.code;
             document.getElementById('new-card-input').value = card.numbers.join(' ');
             document.getElementById('bottom-panel').scrollTo({ top: 0, behavior: 'smooth' });
             document.getElementById('new-card-input').focus();
+            
+            // Efeito visual na caixa
             const formBox = document.getElementById('add-card-section');
-            formBox.style.border = "2px solid var(--accent)";
-            setTimeout(() => { formBox.style.border = "1px solid #333"; }, 1500);
+            formBox.style.transform = "scale(1.02)";
+            setTimeout(() => { formBox.style.transform = "scale(1)"; }, 300);
         }
     }
 
@@ -759,6 +777,11 @@
         return { count: missing.length, missingNumbers: missing };
     }
 
+    // Função de auxilio para gerar o layout do número em destaque
+    function highlightNum(num) {
+        return `<span class="alert-num">${num}</span>`;
+    }
+
     function updateAllCards() {
         const container = document.getElementById('cards-container');
         const alertsContainer = document.getElementById('alerts-container');
@@ -785,10 +808,19 @@
             const mCount = card.mCount; 
             const mNums = card.mNums;
 
-            if (mCount === 0 && drawnNumbers.size > 0) arrBingos.push(card.code);
-            else if (mCount === 1) arrArmadas.push(`${card.code} (Nº ${mNums[0]})`);
-            else if (mCount === 2) arrFaltam2.push(card.code);
-            else if (mCount === 3) arrFaltam3.push(card.code);
+            // Injeta o HTML da bolinha preta nas notificações usando highlightNum
+            if (mCount === 0 && drawnNumbers.size > 0) {
+                arrBingos.push(`Cód ${card.code}`);
+            }
+            else if (mCount === 1) {
+                arrArmadas.push(`Cód ${card.code} ${highlightNum(mNums[0])}`);
+            }
+            else if (mCount === 2) {
+                arrFaltam2.push(`Cód ${card.code} ${mNums.map(n => highlightNum(n)).join('')}`);
+            }
+            else if (mCount === 3) {
+                arrFaltam3.push(`Cód ${card.code} ${mNums.map(n => highlightNum(n)).join('')}`);
+            }
 
             const cardDiv = document.createElement('div');
             
@@ -837,11 +869,12 @@
             container.appendChild(cardDiv);
         });
 
+        // Renderiza as notificações (Usando | para separar cartelas visualmente)
         if (drawnNumbers.size > 0) {
-            if (arrBingos.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-bingo">🏆 BINGO DETECTADO: ${arrBingos.join(', ')}</div>`;
-            if (arrArmadas.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-armada">🚨 ARMADAS (Falta 1): ${arrArmadas.join(', ')}</div>`;
-            if (arrFaltam2.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-3">⚠️ Faltam 2 números: ${arrFaltam2.join(', ')}</div>`;
-            if (arrFaltam3.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-3">⚠️ Faltam 3 números: ${arrFaltam3.join(', ')}</div>`;
+            if (arrBingos.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-bingo">🏆 BINGO DETECTADO:<br>${arrBingos.join(' | ')}</div>`;
+            if (arrArmadas.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-armada">🚨 ARMADAS (Falta 1):<br>${arrArmadas.join(' | ')}</div>`;
+            if (arrFaltam2.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-3">⚠️ Faltam 2 números:<br>${arrFaltam2.join(' | ')}</div>`;
+            if (arrFaltam3.length > 0) alertsContainer.innerHTML += `<div class="alert-box alert-3">⚠️ Faltam 3 números:<br>${arrFaltam3.join(' | ')}</div>`;
         }
     }
 
