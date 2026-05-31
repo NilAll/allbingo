@@ -333,12 +333,12 @@
 
     <div id="admin-auth-modal" class="modal-overlay">
         <div class="modal-content">
-            <h3>Acesso Restrito</h3>
-            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">Digite a senha para acessar a área administrativa.</p>
+            <h3 id="auth-title">Acesso Restrito</h3>
+            <p id="auth-desc" style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">Digite a senha para continuar.</p>
             <input type="password" id="admin-pwd-input" placeholder="Senha do Administrador">
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="closeAdminAuth()">Cancelar</button>
-                <button class="btn-blue" onclick="verifyAdmin()">Acessar</button>
+                <button class="btn-blue" onclick="verifyAdmin()">Confirmar</button>
             </div>
         </div>
     </div>
@@ -364,7 +364,7 @@
         <div class="prize-header">
             <span class="current-prize-title" id="current-prize-display">Prêmio: Aguardando...</span>
             <div style="display: flex; gap: 5px;">
-                <button class="btn-small" style="background-color: #333; color: #fff; font-size: 16px; padding: 6px 12px;" onclick="openAdminAuth()">☰</button>
+                <button class="btn-small" style="background-color: #333; color: #fff; font-size: 16px; padding: 6px 12px;" onclick="openAdminAuth('panel')">☰</button>
                 <button class="btn-small btn-brown" onclick="someoneElseWon()">Batido por Outro</button>
                 <button class="btn-small" onclick="resetRound()">Novo Prêmio</button>
             </div>
@@ -392,16 +392,14 @@
             <div class="collapsible-content" id="config-content" style="display: none;">
                 <div class="backup-controls">
                     <button class="btn-secondary" onclick="exportBackup()">💾 Exportar</button>
-                    <label class="btn-label btn-secondary">
-                        📂 Importar
-                        <input type="file" id="import-file" style="display: none;" accept=".json">
-                    </label>
+                    <button class="btn-secondary" onclick="openAdminAuth('import')">📂 Importar</button>
+                    <input type="file" id="import-file" style="display: none;" accept=".json">
                 </div>
 
                 <div id="locked-message" style="text-align: center; padding: 20px; background: #222; border-radius: 8px; border: 1px dashed #555; margin-bottom: 15px;">
                     <div style="font-size: 24px; margin-bottom: 10px;">🔒</div>
                     <h3 style="margin: 0 0 5px 0; color: var(--alert-danger);">Sistema Bloqueado</h3>
-                    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Para cadastrar novas cartelas, importe o arquivo de acesso (.json) fornecido pelo administrador no botão "Importar" acima.</p>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Para cadastrar novas cartelas, solicite ao administrador a liberação do sistema via botão "Importar".</p>
                 </div>
 
                 <div id="add-card-section" style="display: none;">
@@ -448,11 +446,25 @@
     let cardIdCounter = 1;
     let pendingDrawNumber = null;
     let editingCardId = null; 
-    let isLicensed = false; // Controle de Licença
+    let isLicensed = false; 
+    let authTarget = 'panel'; // Rastreia qual botão chamou a senha
 
-    // ÁREA ADMINISTRATIVA: Verificação Criptografada via Base64
-    function openAdminAuth() {
+    // ÁREA DE AUTENTICAÇÃO
+    function openAdminAuth(target = 'panel') {
+        authTarget = target;
         document.getElementById('admin-pwd-input').value = "";
+        
+        const authTitle = document.getElementById('auth-title');
+        const authDesc = document.getElementById('auth-desc');
+
+        if (target === 'import') {
+            authTitle.innerText = "Autorizar Importação";
+            authDesc.innerText = "Digite a senha do administrador para liberar a escolha do arquivo de licença ou backup.";
+        } else {
+            authTitle.innerText = "Acesso Restrito";
+            authDesc.innerText = "Digite a senha para acessar a área administrativa.";
+        }
+
         document.getElementById('admin-auth-modal').style.display = 'flex';
         document.getElementById('admin-pwd-input').focus();
     }
@@ -463,11 +475,16 @@
 
     function verifyAdmin() {
         const input = document.getElementById('admin-pwd-input').value;
-        // A string abaixo é "adminteste102030@" convertida em Base64
         if (btoa(input) === "YWRtaW50ZXN0ZTEwMjAzMEA=") {
             closeAdminAuth();
-            openAdminPanel();
             document.getElementById('admin-pwd-input').value = "";
+            
+            // Direciona para a ação correta após a senha
+            if (authTarget === 'import') {
+                document.getElementById('import-file').click();
+            } else {
+                openAdminPanel();
+            }
         } else {
             alert("Senha Incorreta!");
             document.getElementById('admin-pwd-input').value = "";
@@ -482,7 +499,6 @@
         document.getElementById('admin-panel-modal').style.display = 'none';
     }
 
-    // GERA O JSON DE ACESSO DO CLIENTE
     function generateLicense() {
         const clientName = document.getElementById('client-name-input').value.trim();
         if (!clientName) return alert("Digite o nome do cliente.");
@@ -505,7 +521,6 @@
         document.getElementById('client-name-input').value = '';
     }
 
-    // CONTROLE DE INTERFACE (LIBERAÇÃO)
     function checkLicenseUI() {
         if (isLicensed) {
             document.getElementById('add-card-section').style.display = 'block';
@@ -516,11 +531,9 @@
         }
     }
 
-    // Função para abrir/fechar o sanfona
     function toggleConfig(forceOpen = false) {
         const content = document.getElementById('config-content');
         const arrow = document.getElementById('config-arrow');
-        
         if (forceOpen || content.style.display === 'none') {
             content.style.display = 'block';
             arrow.innerText = '▲';
@@ -546,7 +559,7 @@
                 cards = data.cards || [];
                 pastRounds = data.pastRounds || [];
                 cardIdCounter = data.cardIdCounter || 1;
-                isLicensed = data.isLicensed || false; // Carrega status da licença
+                isLicensed = data.isLicensed || false; 
                 
                 if(currentPrize) {
                     document.getElementById('current-prize-display').innerText = `Prêmio: ${currentPrize.toUpperCase()}`;
@@ -558,7 +571,7 @@
                 renderHistory();
             } catch(e) { console.error(e); }
         }
-        checkLicenseUI(); // Aplica o bloqueio visual
+        checkLicenseUI(); 
     }
 
     function exportBackup() {
@@ -575,7 +588,6 @@
         URL.revokeObjectURL(url);
     }
 
-    // IMPORTAÇÃO: Identifica se é Licença ou Backup comum
     document.getElementById('import-file').addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -584,16 +596,13 @@
         reader.onload = function(e) {
             try {
                 const data = JSON.parse(e.target.result);
-                
-                // VERIFICA SE É UMA LICENÇA
                 if (data.isBingoLicense === true) {
                     isLicensed = true;
                     saveData();
                     checkLicenseUI();
-                    toggleConfig(true); // Abre o menu para mostrar que desbloqueou
+                    toggleConfig(true); 
                     alert(`✅ Acesso Liberado com sucesso!\nLicença ativada para: ${data.client}`);
                 } 
-                // VERIFICA SE É UM BACKUP COMUM
                 else if (data.cards && Array.isArray(data.cards)) {
                     localStorage.setItem('bingoAppData', JSON.stringify(data));
                     loadData();
@@ -853,7 +862,6 @@
         saveData();
     }
 
-    // BOTÃO AGORA SÓ EDITA (NÃO DUPLICA MAIS)
     function editCard(id) {
         const card = cards.find(c => c.id === id);
         if(card) {
