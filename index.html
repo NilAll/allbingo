@@ -112,7 +112,6 @@
             line-height: 1.6;
         }
 
-        /* ESTILO DO DESTAQUE DOS NÚMEROS FALTANTES */
         .alert-num {
             background: #000000;
             color: #ffffff;
@@ -307,7 +306,6 @@
 </head>
 <body>
 
-    <!-- MODAL DE INSERIR PRÊMIO -->
     <div id="prize-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Novo Sorteio</h3>
@@ -321,7 +319,6 @@
         </div>
     </div>
 
-    <!-- MODAL DE CONFERÊNCIA -->
     <div id="history-modal" class="modal-overlay">
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -334,7 +331,6 @@
         </div>
     </div>
 
-    <!-- MODAIS DA ÁREA ADMINISTRATIVA -->
     <div id="admin-auth-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Acesso Restrito</h3>
@@ -350,10 +346,12 @@
     <div id="admin-panel-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Área Administrativa</h3>
-            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">Bem-vindo! Configurações exclusivas estarão disponíveis aqui.</p>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">Gerencie as licenças de acesso ao sistema.</p>
             
             <div style="background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #555;">
-                <em style="font-size: 13px; color: #888;">* Espaço reservado para futuras funções administrativas. *</em>
+                <h4 style="margin: 0 0 10px 0; color: var(--accent);">Gerar Cadastro de Acesso</h4>
+                <input type="text" id="client-name-input" placeholder="Nome do Cliente" style="margin-bottom: 10px;">
+                <button class="btn-blue" style="width: 100%;" onclick="generateLicense()">Baixar JSON de Acesso</button>
             </div>
 
             <div class="modal-actions">
@@ -362,12 +360,10 @@
         </div>
     </div>
 
-    <!-- PAINEL SUPERIOR -->
     <div id="top-panel">
         <div class="prize-header">
             <span class="current-prize-title" id="current-prize-display">Prêmio: Aguardando...</span>
             <div style="display: flex; gap: 5px;">
-                <!-- Botão Menu Hamburguer para Área Administrativa -->
                 <button class="btn-small" style="background-color: #333; color: #fff; font-size: 16px; padding: 6px 12px;" onclick="openAdminAuth()">☰</button>
                 <button class="btn-small btn-brown" onclick="someoneElseWon()">Batido por Outro</button>
                 <button class="btn-small" onclick="resetRound()">Novo Prêmio</button>
@@ -385,10 +381,8 @@
         <div class="drawn-numbers-container" id="drawn-list"></div>
     </div>
 
-    <!-- PAINEL INFERIOR -->
     <div id="bottom-panel">
         
-        <!-- CARD RETRÁTIL (SANFONA) DE CONFIGURAÇÕES -->
         <div class="collapsible-card">
             <div class="collapsible-header" onclick="toggleConfig()">
                 <span>⚙️ Ferramentas & Cadastro</span>
@@ -396,7 +390,6 @@
             </div>
             
             <div class="collapsible-content" id="config-content" style="display: none;">
-                <!-- Botões de Exportar e Importar -->
                 <div class="backup-controls">
                     <button class="btn-secondary" onclick="exportBackup()">💾 Exportar</button>
                     <label class="btn-label btn-secondary">
@@ -405,8 +398,13 @@
                     </label>
                 </div>
 
-                <!-- Formulário de Cartela (Agora atende Inclusão e Edição) -->
-                <div id="add-card-section">
+                <div id="locked-message" style="text-align: center; padding: 20px; background: #222; border-radius: 8px; border: 1px dashed #555; margin-bottom: 15px;">
+                    <div style="font-size: 24px; margin-bottom: 10px;">🔒</div>
+                    <h3 style="margin: 0 0 5px 0; color: var(--alert-danger);">Sistema Bloqueado</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Para cadastrar novas cartelas, importe o arquivo de acesso (.json) fornecido pelo administrador no botão "Importar" acima.</p>
+                </div>
+
+                <div id="add-card-section" style="display: none;">
                     <h3 class="section-title" id="form-title" style="border-bottom:none; margin-bottom: 10px; padding-bottom: 0;">Nova Cartela</h3>
                     <div class="input-group">
                         <input type="text" id="new-card-code" placeholder="Código (Ex: 001)">
@@ -432,17 +430,14 @@
         </div>
         
         <div id="cards-container">
-            <!-- Cartelas Atuais -->
-        </div>
+            </div>
 
-        <!-- SESSÃO DE CONFERÊNCIA FUTURA -->
         <div class="section-title" style="margin-top: 30px;">
             <span>Conferência Futura (<span id="history-count">0</span>)</span>
             <button class="btn-small btn-warn" onclick="clearHistory()">Limpar</button>
         </div>
         <div id="history-container" style="display: flex; flex-direction: column; gap: 10px;">
-            <!-- Histórico injetado via JS -->
-        </div>
+            </div>
     </div>
 
 <script>
@@ -452,9 +447,10 @@
     let pastRounds = []; 
     let cardIdCounter = 1;
     let pendingDrawNumber = null;
-    let editingCardId = null; // Variável para rastrear se estamos editando
+    let editingCardId = null; 
+    let isLicensed = false; // Controle de Licença
 
-    // ÁREA ADMINISTRATIVA: Verificação Criptografada (Ofuscação)
+    // ÁREA ADMINISTRATIVA: Verificação Criptografada via Base64
     function openAdminAuth() {
         document.getElementById('admin-pwd-input').value = "";
         document.getElementById('admin-auth-modal').style.display = 'flex';
@@ -467,16 +463,11 @@
 
     function verifyAdmin() {
         const input = document.getElementById('admin-pwd-input').value;
-        let hash = "";
-        // Criptografia básica invertida (Ninguém acha a senha lendo o código abaixo)
-        for(let i = 0; i < input.length; i++) {
-            hash += String.fromCharCode(input.charCodeAt(i) + 5);
-        }
-        
-        // Verifica contra o valor transformado
-        if (hash === "firnsyxjyj657585E") {
+        // A string abaixo é "adminteste102030@" convertida em Base64
+        if (btoa(input) === "YWRtaW50ZXN0ZTEwMjAzMEA=") {
             closeAdminAuth();
             openAdminPanel();
+            document.getElementById('admin-pwd-input').value = "";
         } else {
             alert("Senha Incorreta!");
             document.getElementById('admin-pwd-input').value = "";
@@ -489,6 +480,40 @@
 
     function closeAdminPanel() {
         document.getElementById('admin-panel-modal').style.display = 'none';
+    }
+
+    // GERA O JSON DE ACESSO DO CLIENTE
+    function generateLicense() {
+        const clientName = document.getElementById('client-name-input').value.trim();
+        if (!clientName) return alert("Digite o nome do cliente.");
+
+        const licenseData = {
+            isBingoLicense: true,
+            client: clientName,
+            generatedAt: new Date().toLocaleString()
+        };
+
+        const blob = new Blob([JSON.stringify(licenseData)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Acesso_Bingo_${clientName.replace(/\s+/g, '_')}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        alert("Arquivo de acesso gerado com sucesso! Envie este arquivo .json para o cliente.");
+        document.getElementById('client-name-input').value = '';
+    }
+
+    // CONTROLE DE INTERFACE (LIBERAÇÃO)
+    function checkLicenseUI() {
+        if (isLicensed) {
+            document.getElementById('add-card-section').style.display = 'block';
+            document.getElementById('locked-message').style.display = 'none';
+        } else {
+            document.getElementById('add-card-section').style.display = 'none';
+            document.getElementById('locked-message').style.display = 'block';
+        }
     }
 
     // Função para abrir/fechar o sanfona
@@ -507,7 +532,7 @@
 
     function saveData() {
         localStorage.setItem('bingoAppData', JSON.stringify({
-            currentPrize, drawnNumbers: Array.from(drawnNumbers), cards, pastRounds, cardIdCounter
+            currentPrize, drawnNumbers: Array.from(drawnNumbers), cards, pastRounds, cardIdCounter, isLicensed
         }));
     }
 
@@ -521,6 +546,7 @@
                 cards = data.cards || [];
                 pastRounds = data.pastRounds || [];
                 cardIdCounter = data.cardIdCounter || 1;
+                isLicensed = data.isLicensed || false; // Carrega status da licença
                 
                 if(currentPrize) {
                     document.getElementById('current-prize-display').innerText = `Prêmio: ${currentPrize.toUpperCase()}`;
@@ -532,6 +558,7 @@
                 renderHistory();
             } catch(e) { console.error(e); }
         }
+        checkLicenseUI(); // Aplica o bloqueio visual
     }
 
     function exportBackup() {
@@ -548,6 +575,7 @@
         URL.revokeObjectURL(url);
     }
 
+    // IMPORTAÇÃO: Identifica se é Licença ou Backup comum
     document.getElementById('import-file').addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -556,12 +584,22 @@
         reader.onload = function(e) {
             try {
                 const data = JSON.parse(e.target.result);
-                if (data.cards && Array.isArray(data.cards)) {
+                
+                // VERIFICA SE É UMA LICENÇA
+                if (data.isBingoLicense === true) {
+                    isLicensed = true;
+                    saveData();
+                    checkLicenseUI();
+                    toggleConfig(true); // Abre o menu para mostrar que desbloqueou
+                    alert(`✅ Acesso Liberado com sucesso!\nLicença ativada para: ${data.client}`);
+                } 
+                // VERIFICA SE É UM BACKUP COMUM
+                else if (data.cards && Array.isArray(data.cards)) {
                     localStorage.setItem('bingoAppData', JSON.stringify(data));
                     loadData();
                     alert("Backup importado com sucesso!");
                 } else {
-                    alert("Arquivo de backup inválido.");
+                    alert("Arquivo inválido ou incompatível.");
                 }
             } catch (err) { alert("Erro ao ler o ficheiro."); }
             event.target.value = ''; 
@@ -786,7 +824,6 @@
         });
     }
 
-    // FUNÇÃO UNIFICADA: Salvar Nova ou Atualizar Existente
     function saveCard() {
         const codeInput = document.getElementById('new-card-code').value.trim() || `C-${cardIdCounter}`;
         const numInput = document.getElementById('new-card-input').value;
@@ -799,27 +836,24 @@
         const formattedNumbers = matches.map(n => parseInt(n));
 
         if (editingCardId !== null) {
-            // Editando cartela existente (NÃO DUPLICA MAIS)
             const card = cards.find(c => c.id === editingCardId);
             if (card) {
                 card.code = codeInput;
                 card.numbers = formattedNumbers;
             }
-            alert("Cartela atualizada com sucesso!");
         } else {
-            // Adicionando nova cartela
             cards.push({
                 id: cardIdCounter++, code: codeInput, 
                 numbers: formattedNumbers, mode: 'cheia', opponentWon: false 
             });
         }
 
-        cancelEdit(); // Limpa e reseta a interface
+        cancelEdit(); 
         updateAllCards();
         saveData();
     }
 
-    // PREPARA O FORMULÁRIO PARA EDIÇÃO
+    // BOTÃO AGORA SÓ EDITA (NÃO DUPLICA MAIS)
     function editCard(id) {
         const card = cards.find(c => c.id === id);
         if(card) {
@@ -943,7 +977,6 @@
 
             cardDiv.className = `card ${statusClass}`;
 
-            // BOTÃO MUDOU PARA 'editCard'
             let html = `
                 <div class="card-header">
                     <div class="card-title-row">
